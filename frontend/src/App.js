@@ -15,64 +15,72 @@ import {
 import axios from 'axios';
 import { useEffect, useState } from 'react';
 
-import ProductSimple from './Components/Card';
-import AuthorComponent from './Components/AuthorComponent';
-
-import PaginationComponent from './Components/Pagination';
+import CardNew from './Components/CardNew';
 
 function App() {
   const [state, SetState] = useState('');
   const [data, setData] = useState([]);
   const [limit, SetLimit] = useState(0);
-  const [limitTop, SetLimitTop] = useState(0);
   const [loading, SetLoading] = useState(false);
   const [paginationData, setPaginationData] = useState([]);
-  const bgCenter = useColorModeValue('white', 'gray.800');
-  const getData = async (e) => {
-    e.preventDefault();
+  const [page, setPage] = useState('https://gutendex.com/books');
+
+  const getData = async () => {
     try {
       SetLoading(true);
-      const response = await axios.get(
-        `https://gutendex.com/books/?search=${state}`
-      );
+
+      const response = await axios.get(`${page}/?search=${state}`);
+
       SetLoading(false);
-      setData(response.data.results);
+      setData((prev) => [...prev, ...response.data.results]);
+      setPage(response.data.next);
+      console.log('LINK', response.data.next);
+
       let ans = [];
-      for (let i = 0 + limit; i < 10 + limit; i++) {
-        if (response.data.results[i] !== undefined) {
+      for (let i = 0; i < 10; i++) {
+        if (response.data.results[i]) {
           ans.push(response.data.results[i]);
         }
       }
-      setPaginationData(ans);
+      setPaginationData((prev) => [...prev, ...ans]);
+    } catch (er) {
+      return console.log(er.message);
+    }
+  };
+  const getNextPage = async () => {
+    try {
+      const response = await axios.get(`${page}`);
+      setData((prev) => [...prev, ...response.data.results]);
+      setPage(response.data.next);
+
+      console.log('LINK', response.data.next);
     } catch (er) {
       return console.log(er.message);
     }
   };
   const asignLimits = () => {
     let ans = [];
-    for (let i = 0 + limit; i < 10 + limit; i++) {
+
+    for (let i = limit; i < 10 + limit; i++) {
       if (data[i]) {
         ans.push(data[i]);
       }
     }
-    console.log('inside assign', ans);
-    setPaginationData(ans);
+    console.log('Ans Length - >', ans, ans.length);
+    setPaginationData((prev) => [...prev, ...ans]);
   };
   const infiniteScroll = async () => {
     try {
       let scrollHeight = document.documentElement.scrollHeight;
       let innerHeight = window.innerHeight;
       let scrollTop = document.documentElement.scrollTop;
-      try {
-        if (innerHeight + scrollTop + 1 >= scrollHeight) {
-          SetLimit((prev) => prev + 10);
-          console.log(limit);
-          asignLimits();
-        }
-      } catch (er) {
-        console.log('Infinityscroll handle', er.message);
+      // let scrollTop = window.scrollY;
+
+      if (innerHeight + scrollTop + 1 >= scrollHeight) {
+        SetLimit((prev) => prev + 10);
+        asignLimits();
       }
-      return console.log(scrollHeight, innerHeight, scrollTop);
+      // console.log(scrollTop, innerHeight, scrollHeight);
     } catch (er) {
       return console.log(er.message);
     }
@@ -85,112 +93,40 @@ function App() {
   useEffect(() => {
     asignLimits();
   }, [limit]);
+
+  useEffect(() => {
+    console.log('function call');
+    if (
+      paginationData.length !== 0 &&
+      paginationData.length === data.length &&
+      page
+    ) {
+      getNextPage();
+    }
+  }, [paginationData]);
+
+  console.log(limit);
+  console.log('paginate', paginationData);
+  console.log('Actual data', data);
   return (
     <>
-      <Box w={['80%', '80%', '80%', '50%']} m="auto" pt="10px">
-        <form onSubmit={getData}>
-          <Input
-            placeholder="Search by title and author name"
-            onChange={(e) => {
-              SetState(e.target.value);
-            }}
-          />
-        </form>
+      <Text>{page}</Text>
+      <Box
+        w={['80%', '80%', '80%', '50%']}
+        m="auto"
+        pt="10px"
+        display={'flex'}
+        gap="10px"
+      >
+        <Input
+          placeholder="Search by title and author name"
+          onChange={(e) => {
+            SetState(e.target.value);
+          }}
+        />
+        <Button onClick={getData}>Submit</Button>
       </Box>
-      {paginationData.length == 0 ? (
-        <Grid
-          mt="50px"
-          templateColumns={[
-            'repeat(1, 1fr)',
-            'repeat(2, 1fr)',
-            'repeat(3, 1fr)',
-            'repeat(4,1fr)',
-          ]}
-          gap="30px"
-        >
-          {data?.map(({ title, authors, download_count, formats }, index) => {
-            return (
-              <GridItem>
-                <Center py={12} pb="10px">
-                  <Box
-                    role={'group'}
-                    maxW={'330px'}
-                    w={'full'}
-                    bg={bgCenter}
-                    boxShadow={'2xl'}
-                    rounded={'lg'}
-                    pos={'relative'}
-                    zIndex={1}
-                  >
-                    <Box
-                      rounded={'lg'}
-                      mt={-12}
-                      pos={'relative'}
-                      height={'230px'}
-                      _after={{
-                        transition: 'all .3s ease',
-                        content: '""',
-                        w: 'full',
-                        h: 'full',
-                        pos: 'absolute',
-                        top: 5,
-                        left: 0,
-                        backgroundImage: `url(${formats['image/jpeg']})`,
-                        filter: 'blur(15px)',
-                        zIndex: -1,
-                      }}
-                      _groupHover={{
-                        _after: {
-                          filter: 'blur(20px)',
-                        },
-                      }}
-                    >
-                      <Image
-                        rounded={'lg'}
-                        height={230}
-                        width={282}
-                        objectFit={'cover'}
-                        src={formats['image/jpeg']}
-                        alt="#"
-                      />
-                    </Box>
-                    <Stack pt={10} align={'center'}>
-                      <Text
-                        color={'gray.500'}
-                        fontSize={'sm'}
-                        textTransform={'uppercase'}
-                      >
-                        {authors.length > 0 && (
-                          <AuthorComponent data={authors} />
-                        )}
-                      </Text>
-                      <Heading
-                        fontSize={'2xl'}
-                        fontFamily={'body'}
-                        fontWeight={500}
-                        textAlign={'center'}
-                      >
-                        {title}
-                      </Heading>
-                      <Text> download_count :{download_count}</Text>
-                      {formats['text/plain; charset=utf-8'] ? (
-                        <Button textAlign={'center'} color={'blue.400'}>
-                          <a
-                            href={formats['text/plain; charset=utf-8']}
-                            download={'download'}
-                          >
-                            Download Text Version
-                          </a>
-                        </Button>
-                      ) : null}
-                    </Stack>
-                  </Box>
-                </Center>
-              </GridItem>
-            );
-          })}
-        </Grid>
-      ) : null}
+
       {!loading ? (
         <Grid
           mt="50px"
@@ -202,89 +138,16 @@ function App() {
           ]}
           gap="30px"
         >
-          {paginationData?.map(
-            ({ title, authors, download_count, formats }, index) => {
-              return (
-                <GridItem>
-                  <Center py={12} pb="10px">
-                    <Box
-                      role={'group'}
-                      maxW={'330px'}
-                      w={'full'}
-                      bg={bgCenter}
-                      boxShadow={'2xl'}
-                      rounded={'lg'}
-                      pos={'relative'}
-                      zIndex={1}
-                    >
-                      <Box
-                        rounded={'lg'}
-                        mt={-12}
-                        pos={'relative'}
-                        height={'230px'}
-                        _after={{
-                          transition: 'all .3s ease',
-                          content: '""',
-                          w: 'full',
-                          h: 'full',
-                          pos: 'absolute',
-                          top: 5,
-                          left: 0,
-                          backgroundImage: `url(${formats['image/jpeg']})`,
-                          filter: 'blur(15px)',
-                          zIndex: -1,
-                        }}
-                        _groupHover={{
-                          _after: {
-                            filter: 'blur(20px)',
-                          },
-                        }}
-                      >
-                        <Image
-                          rounded={'lg'}
-                          height={230}
-                          width={282}
-                          objectFit={'cover'}
-                          src={formats['image/jpeg']}
-                          alt="#"
-                        />
-                      </Box>
-                      <Stack pt={10} align={'center'}>
-                        <Text
-                          color={'gray.500'}
-                          fontSize={'sm'}
-                          textTransform={'uppercase'}
-                        >
-                          {authors.length > 0 && (
-                            <AuthorComponent data={authors} />
-                          )}
-                        </Text>
-                        <Heading
-                          fontSize={'2xl'}
-                          fontFamily={'body'}
-                          fontWeight={500}
-                          textAlign={'center'}
-                        >
-                          {title}
-                        </Heading>
-                        <Text> download_count :{download_count}</Text>
-                        {formats['text/plain; charset=utf-8'] ? (
-                          <Button textAlign={'center'} color={'blue.400'}>
-                            <a
-                              href={formats['text/plain; charset=utf-8']}
-                              download={'download'}
-                            >
-                              Download Text Version
-                            </a>
-                          </Button>
-                        ) : null}
-                      </Stack>
-                    </Box>
-                  </Center>
-                </GridItem>
-              );
-            }
-          )}
+          {paginationData?.map((item, index) => {
+            return (
+              <CardNew
+                title={item?.title}
+                authors={item?.authors}
+                download_count={item?.download_count}
+                formats={item?.formats}
+              />
+            );
+          })}
         </Grid>
       ) : (
         <Box mt="30px" textAlign={'center'}>
@@ -297,7 +160,14 @@ function App() {
           />
         </Box>
       )}
-      {/* {data.length > 0 && <PaginationComponent />} */}
+      {/* <Button
+        onClick={() => {
+          SetLimit((prev) => prev + 10);
+          asignLimits();
+        }}
+      >
+        Paginate
+      </Button> */}
     </>
   );
 }
